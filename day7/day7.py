@@ -1,42 +1,29 @@
-from collections import defaultdict
 import logging
-from pprint import pprint
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-def dir_size(tree: dict) -> int:
+def walk_dirs(tr, nm, sizes):
     size = 0
-    for _, val in tree.items():
-        if isinstance(val, int):
-            size += val
+    for node_name, node_val in tr.items():
+        if isinstance(node_val, dict):
+            size += walk_dirs(node_val, nm + "/" + node_name, sizes)
         else:
-            size += dir_size(val)
+            size += node_val
 
+    logging.info("Found %s with size %i" % (nm, size))
+    if size <= 100_000:
+        sizes.append(size)
     return size
 
-def walk(tree, total):
-    size = dir_size(tree)
-    logging.debug("current directory size %i" % size)
-    if size < 100000:
-        logging.debug("updating total")
-        total += size
-    for nn, node in tree.items():
-        if isinstance(node, dict):
-            logging.debug("walking subdir %s" % nn)
-            updated_total = walk(node, total)
-            logging.debug("Result of walking %s: new total %i" % (nn, updated_total))
-            total += updated_total
-
-    return total
-
-
 def part1():
+    # with open("day7example.txt", "r") as f:
+    #     d = f.read().splitlines()
     with open("day7.txt", "r") as f:
         d = f.read().splitlines()
 
     dir_tree = {}
-    csr: dict = None
+    csr: dict = {}
     stk = []
 
     ls_bfr: list[tuple[str, int]] = []
@@ -46,8 +33,7 @@ def part1():
         if line[0] == "$":
             # Handle previous LS outputs
             if reading_ls:
-                logging.info("Creating new nodes in tree based on previous output")
-                logging.debug(str(ls_bfr))
+                logging.debug("Creating new nodes %s" % str(ls_bfr))
                 # Create files as nodes with their size
                 for fname, fsz in ls_bfr:
                     csr[fname] = fsz
@@ -82,65 +68,17 @@ def part1():
         else:
             if line.startswith("dir"):
                 # Create an empty directory
-                csr[line.split(" ")[1]] = {}
+                csr[line.replace("dir ", "")] = {}
             else:
                 sz, name = line.split(" ")
                 ls_bfr.append((name, int(sz)))
 
-    pprint(dir_tree)
-    pprint(walk(dir_tree, 0))
+    dir_sizes = []
+    walk_dirs(dir_tree, "", dir_sizes)
 
+    logging.info("Final total %i" % sum(dir_sizes))
 
-def sz(tree, cnt):
-    logging.debug("current_size %d" % cnt)
-    ttl = 0
-    for nn, size in tree.items():
-        logging.debug("parsing node %s" % nn)
-        if isinstance(size, dict):
-            ttl += sz(size, cnt)
-        else:
-            ttl += size
-
-    logging.debug("directory scan finished with size %d", ttl)
-    if ttl < 100_000:
-        logging.debug("new total %d" % (ttl + cnt))
-        return ttl + cnt
-    else:
-        logging.debug("directory too large (%d), skipping" % ttl)
-        return cnt
-
-
-
-
-
-
-
-# part1()
-test_case = {                   # sum 284_000
-        "file1": 100000,
-        "dir1": {               # sum 29_000
-            "file2": 2000,
-            "file3": 3000,
-            "dir2": {           # sum 4_000
-                "file4": 4000,
-            },
-            "dir3": {           # sum 20_000
-                "file6": 20000
-            }
-        },
-        "dir4": {               # sum 155_000
-            "file7": 30000,
-            "file8": 100000,
-            "dir5": {           # sum 25_000
-                "file9": 25000
-            }
-        }
-    }
-
-                                # answer 78_000
-
-logging.info("test case %i" % sz(test_case, 0))
-
+part1()
 
 
 
